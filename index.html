@@ -1,0 +1,3076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧭 Eco-Border Regen Logistics</title>
+<meta name="description" content="Policy dashboards for inter-country regeneration that respect ecosystem borders: river basins, ecoregions, corridors, seas, and fire regimes.">
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  ECO-BORDER REGEN LOGISTICS DASHBOARD                       ║
+  ║  Single-file, offline-capable, local-only, rights-first     ║
+  ║  No tracking · No telemetry · IndexedDB storage only        ║
+  ║  Foster + Navi · Planetary Restoration Archive               ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+<style>
+/* ─── CSS CUSTOM PROPERTIES (theming + consistency) ─── */
+:root {
+  --bg-deep: #0a0f0d;
+  --bg-card: #111916;
+  --bg-card-hover: #162019;
+  --bg-surface: #0d1411;
+  --border-subtle: rgba(74, 222, 128, 0.08);
+  --border-mid: rgba(74, 222, 128, 0.15);
+  --border-bright: rgba(74, 222, 128, 0.3);
+  --text-primary: #e8f5e9;
+  --text-secondary: #8fbc8f;
+  --text-muted: #5a7a5e;
+  --accent: #4ade80;
+  --accent-dim: rgba(74, 222, 128, 0.15);
+  --accent-glow: rgba(74, 222, 128, 0.25);
+  --warn: #f59e0b;
+  --warn-dim: rgba(245, 158, 11, 0.12);
+  --danger: #ef4444;
+  --danger-dim: rgba(239, 68, 68, 0.12);
+  --info: #38bdf8;
+  --info-dim: rgba(56, 189, 248, 0.12);
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow-card: 0 2px 20px rgba(0,0,0,0.4), 0 0 40px rgba(74,222,128,0.03);
+  --shadow-glow: 0 0 30px rgba(74,222,128,0.08);
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── RESET + BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  line-height: 1.7;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── PARTICLE CANVAS (background atmosphere) ─── */
+#particleCanvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ─── FONTS (loaded from Google) ─── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+/* ─── GLOBAL LAYOUT ─── */
+.app-wrapper {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ─── TOP BAR ─── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  background: rgba(10, 15, 13, 0.85);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.topbar-brand .icon { font-size: 1.3rem; }
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.topbar-search-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--border-bright);
+  color: var(--text-primary);
+}
+
+.topbar-search-btn kbd {
+  display: inline-flex;
+  padding: 1px 6px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.state-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.state-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+  50% { opacity: 0.5; box-shadow: 0 0 16px var(--accent); }
+}
+
+.topbar-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.topbar-btn:hover {
+  background: var(--accent-dim);
+  border-color: var(--border-mid);
+  color: var(--text-secondary);
+}
+
+/* ─── HERO / HEADER ─── */
+.hero {
+  position: relative;
+  padding: 60px 24px 48px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(ellipse, rgba(74,222,128,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.hero h1 .eco-icon { color: var(--accent); }
+
+.hero-sub {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  max-width: 640px;
+  margin: 0 auto 20px;
+  line-height: 1.6;
+}
+
+.hero-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ─── MAIN CONTENT AREA ─── */
+.main-content {
+  display: flex;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 16px 80px;
+  gap: 24px;
+}
+
+/* ─── SIDEBAR (Table of Contents) ─── */
+.sidebar {
+  position: sticky;
+  top: 72px;
+  width: 280px;
+  flex-shrink: 0;
+  height: calc(100vh - 88px);
+  overflow-y: auto;
+  padding: 16px 0 16px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-mid) transparent;
+}
+
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+
+.sidebar-heading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  padding: 0 12px 8px;
+  font-weight: 600;
+}
+
+.sidebar-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 0 12px 16px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.toc-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: var(--transition);
+  border-left: 2px solid transparent;
+  margin-bottom: 2px;
+}
+
+.toc-link:hover {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+  border-left-color: var(--accent);
+}
+
+.toc-link.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 500;
+}
+
+.toc-link .toc-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+
+/* ─── CONTENT COLUMN ─── */
+.content-col {
+  flex: 1;
+  min-width: 0;
+  max-width: 900px;
+}
+
+/* ─── SECTION CARDS ─── */
+.section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: var(--transition);
+}
+
+.section-card:hover {
+  border-color: var(--border-mid);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  cursor: pointer;
+  user-select: none;
+  transition: var(--transition);
+  border-bottom: 1px solid transparent;
+}
+
+.section-header:hover {
+  background: var(--bg-card-hover);
+}
+
+.section-header.open {
+  border-bottom-color: var(--border-subtle);
+}
+
+.section-chevron {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.section-header.open .section-chevron {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+.section-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.section-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.section-body {
+  display: none;
+  padding: 24px;
+  animation: fadeSlideIn 0.3s ease;
+}
+
+.section-body.open { display: block; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── CONTENT ELEMENTS ─── */
+.prose { line-height: 1.8; color: var(--text-secondary); font-size: 0.92rem; }
+.prose p { margin-bottom: 14px; }
+.prose strong { color: var(--text-primary); font-weight: 600; }
+.prose em { color: var(--accent); font-style: normal; font-weight: 500; }
+
+.callout {
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  margin: 16px 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  border-left: 3px solid;
+}
+
+.callout-info { background: var(--info-dim); border-color: var(--info); color: var(--info); }
+.callout-warn { background: var(--warn-dim); border-color: var(--warn); color: var(--warn); }
+.callout-danger { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+.callout-green { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+.callout-label {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.sub-heading {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  margin: 24px 0 12px;
+}
+
+.sub-heading:first-child { margin-top: 0; }
+
+/* ─── TAB GROUPS ─── */
+.tab-group { margin: 16px 0; }
+
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.tab-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+}
+
+.tab-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.04); }
+.tab-btn.active { color: var(--accent); background: var(--accent-dim); }
+
+.tab-panel { display: none; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7; }
+.tab-panel.active { display: block; animation: fadeSlideIn 0.25s ease; }
+
+/* ─── PROMPT CARDS ─── */
+.prompt-card {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  position: relative;
+}
+
+.prompt-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--info);
+  margin-bottom: 10px;
+}
+
+.prompt-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.prompt-copy-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.prompt-copy-btn:hover { background: var(--accent-glow); color: var(--accent); }
+
+/* ─── CODE BLOCKS ─── */
+.code-block {
+  margin: 16px 0;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(0,0,0,0.2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.code-block pre {
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ─── ATLAS BUILDER FORM ─── */
+.atlas-form { margin: 16px 0; }
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.form-select,
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  transition: var(--transition);
+  outline: none;
+}
+
+.form-select:focus,
+.form-input:focus,
+.form-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.form-textarea { min-height: 80px; resize: vertical; line-height: 1.6; }
+.form-select { cursor: pointer; }
+.form-select option { background: var(--bg-deep); color: var(--text-primary); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  border: 1px solid;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-deep);
+}
+.btn-primary:hover { background: #6ee7a0; box-shadow: 0 0 20px var(--accent-glow); }
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--border-mid);
+  color: var(--text-secondary);
+}
+.btn-secondary:hover { background: var(--accent-dim); color: var(--text-primary); }
+
+.btn-danger {
+  background: transparent;
+  border-color: rgba(239,68,68,0.3);
+  color: var(--danger);
+}
+.btn-danger:hover { background: var(--danger-dim); }
+
+.btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+/* ─── OUTPUT PANELS ─── */
+.output-panel {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  min-height: 80px;
+}
+
+.output-panel-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.output-placeholder {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.output-content {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.save-indicator {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-top: 8px;
+}
+
+.save-indicator.saved { color: var(--accent); }
+
+/* ─── CHECKLIST ─── */
+.checklist { list-style: none; margin: 12px 0; }
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.checklist li:last-child { border-bottom: none; }
+
+.checklist input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--border-mid);
+  border-radius: 4px;
+  background: rgba(0,0,0,0.2);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: var(--transition);
+  position: relative;
+}
+
+.checklist input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checklist input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--bg-deep);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* ─── PILOT LIBRARY CARDS ─── */
+.pilot-card {
+  padding: 16px 20px;
+  background: rgba(0,0,0,0.15);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  margin: 12px 0;
+  transition: var(--transition);
+}
+
+.pilot-card:hover { border-color: var(--border-mid); }
+
+.pilot-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  margin-bottom: 6px;
+}
+
+.pilot-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.pilot-use {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.pilot-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--info);
+  text-decoration: none;
+  margin-top: 6px;
+  transition: var(--transition);
+}
+
+.pilot-link:hover { color: #7dd3fc; text-decoration: underline; }
+
+/* ─── DECISION CHIPS ─── */
+.chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-mid);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  animation: fadeSlideIn 0.2s ease;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 2px;
+  transition: var(--transition);
+}
+.chip-remove:hover { color: var(--danger); }
+
+/* ─── LINKS LIST ─── */
+.link-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.link-item:last-child { border-bottom: none; }
+
+.link-bullet {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
+.link-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.link-text a {
+  color: var(--info);
+  text-decoration: none;
+  transition: var(--transition);
+}
+.link-text a:hover { color: #7dd3fc; text-decoration: underline; }
+
+/* ─── POLICY HUD (XP + READINESS) ─── */
+.hud-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 90;
+  width: 320px;
+  background: rgba(10, 15, 13, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(74,222,128,0.05);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.hud-panel.collapsed .hud-body { display: none; }
+
+.hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+}
+
+.hud-title {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  color: var(--accent);
+}
+
+.hud-toggle {
+  background: none; border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.hud-body { padding: 16px; }
+
+.hud-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.hud-stat-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.hud-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.xp-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #22c55e);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.readiness-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.readiness-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--info), var(--accent));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.hud-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hud-btn {
+  padding: 5px 10px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.hud-btn:hover { background: var(--accent-glow); color: var(--accent); }
+
+.hud-btn.danger { border-color: rgba(239,68,68,0.2); color: var(--danger); }
+.hud-btn.danger:hover { background: var(--danger-dim); }
+
+/* ─── CONSTELLATION CANVAS (in HUD) ─── */
+#constellationCanvas {
+  width: 100%;
+  height: 100px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-subtle);
+}
+
+/* ─── SEARCH MODAL (Ctrl+K) ─── */
+.search-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 200;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+}
+
+.search-overlay.open { display: flex; animation: fadeIn 0.15s ease; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.search-box {
+  width: 560px;
+  max-width: 90vw;
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 80px rgba(74,222,128,0.06);
+  overflow: hidden;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.search-input-row .icon { color: var(--accent); font-size: 1.1rem; }
+
+.search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: var(--font-body);
+}
+
+.search-input::placeholder { color: var(--text-muted); }
+
+.search-results {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.search-result-item:hover,
+.search-result-item.highlighted {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.search-result-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+
+.search-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  display: flex;
+  gap: 16px;
+}
+
+.search-footer kbd {
+  padding: 1px 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  font-size: 0.68rem;
+}
+
+/* ─── FOOTER ─── */
+.site-footer {
+  padding: 32px 24px;
+  text-align: center;
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(0,0,0,0.15);
+}
+
+.footer-shield {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 720px;
+  text-align: left;
+  margin-bottom: 12px;
+}
+
+.footer-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 960px) {
+  .sidebar { display: none; }
+  .main-content { padding: 0 12px 80px; }
+}
+
+@media (max-width: 640px) {
+  .topbar { padding: 0 12px; height: 50px; }
+  .topbar-brand { font-size: 0.9rem; }
+  .hero { padding: 40px 16px 32px; }
+  .section-header { padding: 16px; }
+  .section-body { padding: 16px; }
+  .hud-panel { width: 280px; right: 10px; bottom: 10px; }
+}
+
+/* ─── NOTIFICATION TOAST ─── */
+.toast {
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  z-index: 150;
+  padding: 10px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.2s forwards;
+  pointer-events: none;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ─── LOADING SHIMMER ─── */
+.shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── SCROLL ANIMATION ─── */
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.fade-in-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── STOP-CONDITIONS TABLE ─── */
+.stop-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.82rem;
+}
+
+.stop-table th {
+  text-align: left;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.3);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border-mid);
+}
+
+.stop-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+.stop-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ─── ACCESSIBILITY SKIP LINK ─── */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: var(--accent);
+  color: var(--bg-deep);
+  padding: 10px 20px;
+  z-index: 999;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+}
+
+.skip-link:focus { top: 0; }
+</style>
+</head>
+<body>
+<!-- Accessibility skip link -->
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<!-- Particle animation background -->
+<canvas id="particleCanvas" aria-hidden="true"></canvas>
+
+<div class="app-wrapper">
+
+  <!-- ═══════════ TOP BAR ═══════════ -->
+  <header class="topbar" role="banner">
+    <div class="topbar-brand">
+      <span class="icon">🧭</span>
+      <span>Eco-Border Regen Logistics</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="topbar-search-btn" onclick="openSearch()" aria-label="Open search (Ctrl+K)">
+        🔎 <span>Search</span> <kbd>Ctrl K</kbd>
+      </button>
+      <div class="state-indicator">
+        <span class="state-dot"></span>
+        <span>local</span>
+      </div>
+      <button class="topbar-btn" onclick="exportData()" title="Export all local data as JSON">Export</button>
+      <button class="topbar-btn" onclick="importData()" title="Import previously exported JSON data">Import</button>
+    </div>
+  </header>
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <section class="hero" aria-label="Dashboard introduction">
+    <h1><span class="eco-icon">🧭</span> Eco-Border Regen Logistics</h1>
+    <p class="hero-sub">
+      Transboundary biospheric cascades + migration easibility · policy tools · templates.
+      <br>Policy dashboards for inter-country regeneration that respect ecosystem borders:
+      river basins, ecoregions, corridors, seas, and fire regimes.
+    </p>
+    <div class="hero-tip">
+      💡 <kbd>Ctrl</kbd>+<kbd>K</kbd> to search · Start with the Atlas → pick bordering countries → generate logistics plan
+    </div>
+  </section>
+
+  <!-- ═══════════ MAIN LAYOUT ═══════════ -->
+  <div class="main-content" id="main" role="main">
+
+    <!-- ─── SIDEBAR / TOC ─── -->
+    <nav class="sidebar" aria-label="Table of contents">
+      <div class="sidebar-heading">📌 TOC (Eco-borders first)</div>
+      <div class="sidebar-note">Start with the atlas → pick bordering countries → generate logistics plan + governance template.</div>
+
+      <a href="#sec-premise" class="toc-link" data-section="sec-premise">🗺️ Premise: ecosystems ignore borders <span class="toc-tag">core</span></a>
+      <a href="#sec-rights" class="toc-link" data-section="sec-rights">🛡️ Non-negotiables <span class="toc-tag">rights</span></a>
+      <a href="#sec-loop" class="toc-link" data-section="sec-loop">🔁 Cross-border cascade loop <span class="toc-tag">model</span></a>
+      <a href="#sec-atlas" class="toc-link" data-section="sec-atlas">🧭 Eco-Border Atlas builder <span class="toc-tag">atlas</span></a>
+      <a href="#sec-types" class="toc-link" data-section="sec-types">🧩 Border types <span class="toc-tag">types</span></a>
+      <a href="#sec-mou" class="toc-link" data-section="sec-mou">📄 Templates <span class="toc-tag">mou</span></a>
+      <a href="#sec-ops" class="toc-link" data-section="sec-ops">🚚 Transboundary logistics engine <span class="toc-tag">ops</span></a>
+      <a href="#sec-trade" class="toc-link" data-section="sec-trade">🟢 Customs "Green Lanes" <span class="toc-tag">trade</span></a>
+      <a href="#sec-safety" class="toc-link" data-section="sec-safety">🧫 Biosecurity &amp; phytosanitary <span class="toc-tag">safety</span></a>
+      <a href="#sec-supply" class="toc-link" data-section="sec-supply">🌱 Shared supply chain <span class="toc-tag">supply</span></a>
+      <a href="#sec-labor" class="toc-link" data-section="sec-labor">🧑‍🌾 Workforce mobility <span class="toc-tag">labor</span></a>
+      <a href="#sec-cases" class="toc-link" data-section="sec-cases">🧪 Pilot library <span class="toc-tag">cases</span></a>
+      <a href="#sec-prompt" class="toc-link" data-section="sec-prompt">🧬 Claude prompt chain <span class="toc-tag">prompt</span></a>
+      <a href="#sec-local" class="toc-link" data-section="sec-local">🗃️ Local workspace <span class="toc-tag">local</span></a>
+      <a href="#sec-links" class="toc-link" data-section="sec-links">🔗 Sources &amp; reading list <span class="toc-tag">links</span></a>
+    </nav>
+
+    <!-- ─── CONTENT COLUMN ─── -->
+    <div class="content-col">
+
+      <!-- ═══ SECTION: PREMISE ═══ -->
+      <div class="section-card fade-in-section" id="sec-premise">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🗺️</span>
+          <span class="section-title">Premise: ecosystems ignore borders — policy must not</span>
+          <span class="section-tag">core</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>River basins, coastal seas, migratory corridors, and fire regimes are <em>transboundary by default</em>. If immigration and regeneration programs don't align across borders, logistics becomes friction, and friction becomes failure.</p>
+          </div>
+
+          <div class="callout callout-info">
+            <div class="callout-label">What "ecosystem borders" means here</div>
+            Not national borders. Ecological boundaries such as: river basin edges, ecoregion seams, wildfire regimes, marine regional seas, and connectivity corridors.
+          </div>
+
+          <!-- Tabs: types of ecosystem borders -->
+          <div class="tab-group" data-tabs="eco-types">
+            <div class="tab-bar" role="tablist">
+              <button class="tab-btn active" data-tab="basins" role="tab" aria-selected="true">Basins</button>
+              <button class="tab-btn" data-tab="ecoregions" role="tab">Ecoregions</button>
+              <button class="tab-btn" data-tab="corridors" role="tab">Corridors</button>
+              <button class="tab-btn" data-tab="seas" role="tab">Regional seas</button>
+              <button class="tab-btn" data-tab="fire" role="tab">Fire regimes</button>
+            </div>
+            <div class="tab-panel active" data-panel="basins"><strong>River basins &amp; watersheds</strong> — Water flows regardless of jurisdiction. Shared basins (e.g. Danube, Mekong, Great Lakes) require aligned flood coordination, pollution enforcement, and upstream/downstream governance. A restoration project in one country's headwaters directly affects the downstream country's water quality, fisheries, and agricultural viability.</div>
+            <div class="tab-panel" data-panel="ecoregions"><strong>Ecoregion seams</strong> — Where forest meets grassland, or desert meets savanna, land-use mismatch across a border creates invasive species pathways, grazing conflicts, and habitat fragmentation. Coordinated management at these seams is critical for species migration and ecosystem resilience.</div>
+            <div class="tab-panel" data-panel="corridors"><strong>Connectivity corridors</strong> — Wildlife migration routes cross borders. When protection status is mismatched (e.g. national park on one side, industrial zone on the other), corridors fragment and species face extinction bottlenecks. Infrastructure like roads and rail compounds the problem.</div>
+            <div class="tab-panel" data-panel="seas"><strong>Regional seas &amp; coastal ecosystems</strong> — Marine boundaries are ecological, not political. Fisheries governance, shipping pollution, marine protected area alignment, and oil spill response all require multi-country coordination. One nation's coastal degradation becomes another's fisheries collapse.</div>
+            <div class="tab-panel" data-panel="fire"><strong>Fire regimes &amp; wildfire belts</strong> — Fire doesn't stop at fences. Cross-border smoke impacts, mutual aid delays, and fuel management discontinuity turn manageable fires into catastrophes. Shared fire regimes need shared response protocols and pre-positioned resources.</div>
+          </div>
+
+          <div class="sub-heading">Policy aim (for government officials)</div>
+          <div class="prose">
+            <p>Create inter-country "regen logistics" that is: <em>fast</em> (reduced friction), <em>safe</em> (biosecurity), <em>fair</em> (rights protections), and <em>auditable</em> (stop-conditions). The goal is four integrated policy levers working together:</p>
+          </div>
+
+          <div class="tab-group" data-tabs="policy-aim">
+            <div class="tab-bar" role="tablist">
+              <button class="tab-btn active" data-tab="greenl" role="tab" aria-selected="true">Customs green lanes</button>
+              <button class="tab-btn" data-tab="phyto" role="tab">Phytosanitary harmonization</button>
+              <button class="tab-btn" data-tab="audits" role="tab">Joint audits</button>
+              <button class="tab-btn" data-tab="mobil" role="tab">Rights-first mobility</button>
+            </div>
+            <div class="tab-panel active" data-panel="greenl">Pre-cleared, fast-tracked customs channels for approved restoration inputs (native seedlings, soil amendments, monitoring sensors). Reduces wait times from weeks to days while maintaining randomized audit deterrence.</div>
+            <div class="tab-panel" data-panel="phyto">Shared pest/pathogen lists, compatible inspection standards, mutual recognition of certified nurseries, and shared incident reporting. Prevents ecological harm from well-intentioned but poorly regulated shipments.</div>
+            <div class="tab-panel" data-panel="audits">Joint inspection teams with authority in both jurisdictions, transparent reporting, and automatic triggers if corruption or non-compliance signals emerge. Builds trust and accountability across borders.</div>
+            <div class="tab-panel" data-panel="mobil">Workforce mobility designed around portable status, wage floors, independent ombuds, and "exit without jeopardy." Restoration workers cross borders with protections, not exploitation.</div>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: rewrite this as an executive briefing</div>
+            <div class="prompt-text">Write a one-page executive briefing explaining why ecosystems cross borders and why regen logistics must be transboundary. Include 3 concrete failure examples caused by border friction and 5 policy levers to reduce friction safely. Keep a neutral institutional tone and include rights protections.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: NON-NEGOTIABLES ═══ -->
+      <div class="section-card fade-in-section" id="sec-rights">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🛡️</span>
+          <span class="section-title">Non-negotiables (so regen doesn't become a harm engine)</span>
+          <span class="section-tag">rights</span>
+        </div>
+        <div class="section-body">
+          <div class="callout callout-danger">
+            <div class="callout-label">Must-have safeguards</div>
+            Cross-border projects can go wrong fast. Safeguards are not optional.
+          </div>
+
+          <div class="sub-heading">Rights &amp; "exit without jeopardy"</div>
+          <div class="prose">
+            <p>Any restoration-linked workforce mobility must include <em>portable status</em> and a pathway to leave bad placements without losing legal standing. Add an independent ombuds + rapid inspections. Workers should never be trapped in exploitative conditions because their visa is tied to a single employer.</p>
+          </div>
+
+          <div class="sub-heading">Consent, land, and access</div>
+          <div class="prose">
+            <p>Avoid forced displacement and access restrictions without due process, compensation, and transparent governance. Regeneration must not be "conservation via coercion." Indigenous and local communities must be equal partners in planning and benefit-sharing, not afterthoughts.</p>
+          </div>
+
+          <div class="sub-heading">Stop-conditions (examples)</div>
+          <table class="stop-table" role="table">
+            <thead>
+              <tr><th>Trigger</th><th>Detection signal</th><th>Automatic response</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Labor exploitation spike</td>
+                <td>Complaint patterns, wage data anomalies, inspection flags</td>
+                <td>Automatic inspection surge + portability activation</td>
+              </tr>
+              <tr>
+                <td>Housing pressure threshold exceeded</td>
+                <td>Rental price index, homelessness intake data</td>
+                <td>Pause intake; trigger capacity funding</td>
+              </tr>
+              <tr>
+                <td>Biosecurity breach</td>
+                <td>Pathogen/invasive species detection</td>
+                <td>Quarantine protocols; suspend cross-border plant movement</td>
+              </tr>
+              <tr>
+                <td>Ecological harm indicator rises</td>
+                <td>Monitoring sensor thresholds, biodiversity surveys</td>
+                <td>Suspend project method; switch to adaptive plan</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: generate safeguards + stop-conditions table</div>
+            <div class="prompt-text">Draft a safeguards framework for transboundary regen logistics + workforce mobility. Provide a stop-conditions table with triggers, detection signals, responsible agencies, and automatic responses. Include a shutdown procedure that preserves rights and prevents harm.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: CASCADE LOOP ═══ -->
+      <div class="section-card fade-in-section" id="sec-loop">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🔁</span>
+          <span class="section-title">Cross-border cascade loop (the model you actually test)</span>
+          <span class="section-tag">model</span>
+        </div>
+        <div class="section-body">
+          <div class="callout callout-warn">
+            <div class="callout-label">Treat this as a hypothesis to simulate, not a slogan.</div>
+            The cascade loop is a testable model. Use it to identify where your specific border region's feedback loops break or amplify.
+          </div>
+
+          <div class="sub-heading">Transboundary loop skeleton</div>
+          <div class="prose">
+            <p><strong>Eco-border selection</strong> → bordering countries align governance → logistics "green lanes" + biosecurity → shared nurseries + supply chain → restoration delivery across the eco-border → reduced disaster/health costs → increased fiscal/political stability → sustainable mobility capacity → <em>iterate with audits</em>.</p>
+            <p>Each stage has potential failure modes. The loop only works if audits feed back into governance adjustments. Without that feedback, the model either stalls or spirals into unaccountable expansion.</p>
+          </div>
+
+          <!-- Visual loop diagram using CSS -->
+          <div style="margin: 20px 0; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--border-subtle);">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;">
+              <span style="padding: 6px 14px; background: var(--accent-dim); border: 1px solid var(--border-mid); border-radius: 20px; font-size: 0.78rem; color: var(--accent);">🧭 Eco-border</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--info-dim); border: 1px solid rgba(56,189,248,0.2); border-radius: 20px; font-size: 0.78rem; color: var(--info);">🏛️ Align governance</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--accent-dim); border: 1px solid var(--border-mid); border-radius: 20px; font-size: 0.78rem; color: var(--accent);">🟢 Green lanes</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--info-dim); border: 1px solid rgba(56,189,248,0.2); border-radius: 20px; font-size: 0.78rem; color: var(--info);">🌱 Nurseries + supply</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--accent-dim); border: 1px solid var(--border-mid); border-radius: 20px; font-size: 0.78rem; color: var(--accent);">🌿 Restoration delivery</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--warn-dim); border: 1px solid rgba(245,158,11,0.2); border-radius: 20px; font-size: 0.78rem; color: var(--warn);">📉 Reduced costs</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--info-dim); border: 1px solid rgba(56,189,248,0.2); border-radius: 20px; font-size: 0.78rem; color: var(--info);">📊 Stability</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--accent-dim); border: 1px solid var(--border-mid); border-radius: 20px; font-size: 0.78rem; color: var(--accent);">🧑‍🌾 Mobility</span>
+              <span style="color: var(--text-muted);">→</span>
+              <span style="padding: 6px 14px; background: var(--danger-dim); border: 1px solid rgba(239,68,68,0.2); border-radius: 20px; font-size: 0.78rem; color: var(--danger);">🔍 Audit + iterate</span>
+              <span style="color: var(--text-muted);">↩</span>
+            </div>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: convert this loop into a system dynamics outline</div>
+            <div class="prompt-text">Turn the transboundary cascade loop into a system dynamics model outline. Provide stocks/flows for logistics capacity, workforce mobility, ecological outcomes, and risk indicators. Include parameter lists and calibration data sources.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: ATLAS BUILDER ═══ -->
+      <div class="section-card fade-in-section" id="sec-atlas">
+        <div class="section-header open" onclick="toggleSection(this)" role="button" aria-expanded="true" tabindex="0">
+          <span class="section-chevron" style="transform: rotate(90deg); color: var(--accent);">▸</span>
+          <span class="section-icon">🧭</span>
+          <span class="section-title">Eco-Border Atlas builder</span>
+          <span class="section-tag">atlas</span>
+        </div>
+        <div class="section-body open">
+          <div class="callout callout-green">
+            <div class="callout-label">Interactive builder</div>
+            Choose an ecosystem border type + a real cross-border region. This generates a logistics checklist and a draft MoU outline.
+          </div>
+
+          <div class="atlas-form">
+            <!-- Border type -->
+            <div class="form-group">
+              <label class="form-label" for="atlas-type">Ecosystem border type</label>
+              <select class="form-select" id="atlas-type" onchange="onAtlasChange()">
+                <option value="">— Select border type —</option>
+                <option value="basin">River basin / watershed boundary</option>
+                <option value="ecoregion">Ecoregion seam (forest/grassland/desert transition)</option>
+                <option value="corridor">Ecological connectivity corridor (wildlife migration)</option>
+                <option value="sea">Regional sea / coastal ecosystem</option>
+                <option value="fire">Fire regime / wildfire belt</option>
+                <option value="mountain">Mountain system (headwaters + biodiversity)</option>
+                <option value="lake">Transboundary lake system</option>
+              </select>
+            </div>
+
+            <!-- Region presets -->
+            <div class="form-group">
+              <label class="form-label" for="atlas-region">Example region (prefill or type your own)</label>
+              <select class="form-select" id="atlas-region" onchange="prefillRegion()">
+                <option value="">— Select or type below —</option>
+                <option value="dniester">Dniester River Basin (Moldova–Ukraine)</option>
+                <option value="trifinio">Trifinio-Fraternidad (El Salvador–Guatemala–Honduras)</option>
+                <option value="caspian">Caspian Sea (multi-country coastal basin)</option>
+                <option value="greatlakes">Great Lakes Basin (Canada–USA)</option>
+                <option value="danube">Danube Basin (multi-country Europe)</option>
+                <option value="mekong">Mekong Basin (multi-country SE Asia)</option>
+              </select>
+            </div>
+
+            <!-- Bordering countries -->
+            <div class="form-group">
+              <label class="form-label" for="atlas-countries">Bordering countries / jurisdictions (edit as needed)</label>
+              <input class="form-input" id="atlas-countries" type="text" placeholder="e.g. Moldova, Ukraine" />
+            </div>
+
+            <!-- Agencies -->
+            <div class="form-group">
+              <label class="form-label" for="atlas-agencies">Lead agencies / counterparts (edit as needed)</label>
+              <input class="form-input" id="atlas-agencies" type="text" placeholder="e.g. Ministry of Environment, Water Authority" />
+            </div>
+
+            <!-- Notes -->
+            <div class="form-group">
+              <label class="form-label" for="atlas-notes">Atlas notes (what matters ecologically here?)</label>
+              <textarea class="form-textarea" id="atlas-notes" placeholder="Describe key ecological features, threats, and opportunities..."></textarea>
+            </div>
+
+            <div class="btn-group">
+              <button class="btn btn-primary" onclick="generateAtlas()">🧭 Generate checklist + MoU</button>
+              <button class="btn btn-secondary" onclick="saveAtlas()">💾 Save to local</button>
+            </div>
+          </div>
+
+          <!-- Output: Logistics checklist -->
+          <div class="output-panel" id="atlas-checklist-panel">
+            <div class="output-panel-title">Output: Logistics checklist (auto-generated)</div>
+            <div class="output-placeholder" id="atlas-checklist-placeholder">Generated from border type + region. Press "Generate" above.</div>
+            <div class="output-content" id="atlas-checklist-content" style="display:none;"></div>
+            <div class="save-indicator" id="atlas-checklist-saved"></div>
+          </div>
+
+          <!-- Output: Draft MoU -->
+          <div class="output-panel" id="atlas-mou-panel">
+            <div class="output-panel-title">Output: Draft MoU outline (auto-generated)</div>
+            <div class="output-placeholder" id="atlas-mou-placeholder">A starting outline for a transboundary cooperation agreement. Press "Generate" above.</div>
+            <div class="output-content" id="atlas-mou-content" style="display:none;"></div>
+            <div class="save-indicator" id="atlas-mou-saved"></div>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: turn the atlas into a full policy dashboard</div>
+            <div class="prompt-text">Using the selected eco-border type, region, bordering countries, and agencies, generate a policy dashboard: (1) ecological context, (2) governance structure, (3) logistics plan, (4) safeguards + audits, (5) financing, (6) 12-month pilot timeline, (7) KPIs + thresholds, (8) risks + stop-conditions.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: BORDER TYPES ═══ -->
+      <div class="section-card fade-in-section" id="sec-types">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🧩</span>
+          <span class="section-title">Ecosystem border types (and what logistics usually breaks first)</span>
+          <span class="section-tag">types</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>These are recurring friction points governments can actually fix. Each border type has predictable bottlenecks — knowing them in advance saves years of learning the hard way.</p>
+          </div>
+
+          <table class="stop-table">
+            <thead><tr><th>Border type</th><th>Typical bottlenecks</th></tr></thead>
+            <tbody>
+              <tr><td><strong>River basins</strong></td><td>Data-sharing gaps, upstream/downstream disputes, pollution enforcement, flood coordination</td></tr>
+              <tr><td><strong>Ecoregion seams</strong></td><td>Land-use mismatch across border, invasive species pathways, grazing/forestry conflicts</td></tr>
+              <tr><td><strong>Corridors</strong></td><td>Infrastructure fragmentation (roads/rail), protection status mismatch, poaching enforcement asymmetry</td></tr>
+              <tr><td><strong>Regional seas</strong></td><td>Fisheries governance, shipping pollution, marine protected area alignment, spill response</td></tr>
+              <tr><td><strong>Fire regimes</strong></td><td>Cross-border smoke impacts, mutual aid delays, fuel management discontinuity</td></tr>
+              <tr><td><strong>Mountain/headwaters</strong></td><td>Glacier/snowpack shifts, landslide risk, hydropower conflicts, biodiversity hotspots</td></tr>
+              <tr><td><strong>Lakes</strong></td><td>Eutrophication, invasive species, shared fisheries, shoreline development pressures</td></tr>
+            </tbody>
+          </table>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: produce a "bottleneck-to-fix" map</div>
+            <div class="prompt-text">Create a bottleneck-to-fix map for each ecosystem border type: list top 5 bottlenecks, the agency that controls each, and a safe policy lever to reduce friction. Include safeguards and unintended consequence checks.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: MOU TEMPLATES ═══ -->
+      <div class="section-card fade-in-section" id="sec-mou">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">📄</span>
+          <span class="section-title">Templates (MoU outline + checklists)</span>
+          <span class="section-tag">mou</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>Reusable starting points for transboundary cooperation agreements. Adapt to your specific border region, legal framework, and participating agencies. These are outlines, not final documents — always get legal review.</p>
+          </div>
+
+          <div class="sub-heading">Generic MoU outline structure</div>
+          <div class="code-block">
+            <div class="code-block-header"><span>MoU template skeleton</span> <button class="prompt-copy-btn" onclick="copyCodeBlock(this)">Copy</button></div>
+            <pre>MEMORANDUM OF UNDERSTANDING
+Transboundary Ecological Restoration Cooperation
+
+BETWEEN: [Country A / Agency] AND [Country B / Agency]
+
+PREAMBLE
+- Shared ecological context: [eco-border type + description]
+- Policy objectives: restoration, biosecurity, rights-first mobility
+- Legal basis: [relevant treaties, conventions, bilateral agreements]
+
+ARTICLE 1: DEFINITIONS
+- Eco-border, restoration inputs, green lane, portable status...
+
+ARTICLE 2: GOVERNANCE STRUCTURE
+- Joint Regen Logistics Desk (composition, mandate, SLAs)
+- Escalation paths + dispute resolution
+- Transparency: public reporting cadence
+
+ARTICLE 3: LOGISTICS
+- Green lane eligibility + pre-clearance
+- Biosecurity/phytosanitary harmonization
+- Shared nurseries + supply chain protocols
+- Data-sharing framework (what, how, with whom)
+
+ARTICLE 4: WORKFORCE MOBILITY
+- Portable status + wage floors
+- Independent ombuds + inspection model
+- Grievance SLAs + exit without jeopardy
+- Credential recognition pathways
+
+ARTICLE 5: SAFEGUARDS + STOP-CONDITIONS
+- Trigger table (automatic responses)
+- Shutdown procedure (preserves rights)
+- Audit cadence + reporting
+
+ARTICLE 6: FINANCING
+- Cost-sharing model
+- Anti-corruption controls
+- Public procurement transparency
+
+ARTICLE 7: DURATION, REVIEW, AMENDMENT
+
+ANNEXES
+- A: Logistics checklist
+- B: Stop-conditions table
+- C: KPI dashboard
+- D: Approved vendor/nursery list</pre>
+          </div>
+
+          <div class="sub-heading">Pre-deployment checklist (generic)</div>
+          <ul class="checklist" id="mou-checklist">
+            <li><input type="checkbox" onchange="saveChecklistState()"> Eco-border defined + mapped with both countries' data</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Lead agencies identified + counterparts confirmed</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Legal basis reviewed (treaties, conventions, domestic law)</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Green lane eligibility criteria drafted</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Phytosanitary standards harmonized or mutual recognition agreed</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Nursery certification standards aligned</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Workforce mobility framework with portable status</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Independent ombuds + inspection model designed</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Stop-conditions table completed + approved</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Financing + anti-corruption controls specified</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> KPIs + audit cadence agreed</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Community consultation completed (both sides)</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> Data-sharing protocol with privacy protections</li>
+            <li><input type="checkbox" onchange="saveChecklistState()"> 12-month pilot plan with review gates</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: LOGISTICS ENGINE ═══ -->
+      <div class="section-card fade-in-section" id="sec-ops">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🚚</span>
+          <span class="section-title">Transboundary logistics engine (policy levers)</span>
+          <span class="section-tag">ops</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>Real-world regen rises or falls on logistics. Here are the knobs governments can turn. A beautiful MoU means nothing if seedlings rot at customs or workers can't cross to the planting site.</p>
+          </div>
+
+          <div class="sub-heading">Three logistics layers</div>
+          <div class="prose">
+            <p><strong>1) Movement:</strong> materials, seedlings, equipment, data. <strong>2) Standards:</strong> biosecurity, phytosanitary, reporting. <strong>3) People:</strong> trained crews + rights protections + portable status. All three must be addressed simultaneously — optimizing one without the others creates new bottlenecks.</p>
+          </div>
+
+          <div class="sub-heading">What policymakers can do quickly</div>
+          <div class="prose">
+            <p>Create a joint <em>"Regen Logistics Desk"</em> (customs + environment + agriculture + immigration) that can approve standardized routes, quarantine rules, and rapid-response exceptions. This desk becomes the single point of coordination — eliminating the cross-ministry delay that kills most transboundary projects.</p>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: design the Regen Logistics Desk</div>
+            <div class="prompt-text">Design a "Regen Logistics Desk" for two bordering countries: define mandate, member agencies, escalation paths, decision SLAs, transparency reporting, and stop-conditions for biosecurity or labor harms.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: GREEN LANES ═══ -->
+      <div class="section-card fade-in-section" id="sec-trade">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🟢</span>
+          <span class="section-title">Customs "Green Lanes" (fast lanes for regen goods)</span>
+          <span class="section-tag">trade</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>Move approved restoration inputs quickly without reducing safety. The key insight: <em>pre-clearance + randomized audits</em> is faster than universal inspection, and more secure than no inspection at all.</p>
+          </div>
+
+          <div class="sub-heading">What qualifies for a Green Lane (examples)</div>
+          <div class="prose">
+            <p>Native seedlings from certified nurseries (traceable batches), soil amendments with tested contaminant thresholds, tools and equipment for restoration (tracked inventory), monitoring sensors (water quality, weather stations), and emergency buffer materials during wildfire/flood events.</p>
+          </div>
+
+          <div class="sub-heading">Policy mechanics (safe version)</div>
+          <div class="prose">
+            <p><strong>Pre-clearance:</strong> approved vendor list + batch IDs + digital manifests. <strong>Randomized audits:</strong> keep deterrence while speeding most shipments. <strong>Quarantine triggers:</strong> immediate pause if invasive/pathogen risk detected. <strong>Transparency:</strong> publish aggregate throughput and audit outcomes.</p>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: draft Green Lane regulations</div>
+            <div class="prompt-text">Draft a policy memo establishing a transboundary "Regen Green Lane" for customs. Include eligibility, auditing, quarantine triggers, data requirements, and anti-corruption safeguards.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: BIOSECURITY ═══ -->
+      <div class="section-card fade-in-section" id="sec-safety">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🧫</span>
+          <span class="section-title">Biosecurity &amp; phytosanitary harmonization</span>
+          <span class="section-tag">safety</span>
+        </div>
+        <div class="section-body">
+          <div class="callout callout-warn">
+            <div class="callout-label">Key rule</div>
+            Fast logistics without biosecurity is just "shipping problems to the future." Prioritize native species and climate-suitable seed zones. Require batch traceability, inspection certificates, and quarantine protocols.
+          </div>
+
+          <div class="sub-heading">Harmonization targets</div>
+          <div class="prose">
+            <p>Shared pest/pathogen list, compatible inspection standards, mutual recognition of certified nurseries, and shared incident reporting. The goal is not identical systems — it's interoperable systems that can flag problems fast enough to prevent cascading ecological harm.</p>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: harmonization protocol</div>
+            <div class="prompt-text">Write a harmonized phytosanitary protocol for cross-border restoration shipments: certification, batch traceability, inspection cadence, quarantine triggers, and reporting. Include a rapid-response plan for detected invasive species/pathogens.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: SUPPLY CHAIN ═══ -->
+      <div class="section-card fade-in-section" id="sec-supply">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🌱</span>
+          <span class="section-title">Shared supply chain: nurseries, staging yards, and joint procurement</span>
+          <span class="section-tag">supply</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>The cheapest restoration is the restoration you can reliably deliver. Supply chain failures — stockouts, wrong species, delayed delivery — are the most common reason restoration projects underperform.</p>
+          </div>
+
+          <div class="sub-heading">Practical supply chain patterns</div>
+          <div class="prose">
+            <p><strong>Border twin nurseries:</strong> two matched nurseries (one each side) with shared genetics policy + batch IDs. <strong>Staging yards:</strong> pre-position materials near the eco-border for flood/fire season readiness. <strong>Joint procurement:</strong> reduce costs and corruption via standardized specs + transparent bids. <strong>Maintenance contracts:</strong> fund multi-year survival, not just planting counts.</p>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: build a "nursery-to-site" logistics plan</div>
+            <div class="prompt-text">Create a nursery-to-site logistics plan for the selected eco-border: staging locations, transport rules, chain-of-custody, survival monitoring, and budget lines. Include anti-corruption controls and public reporting.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: WORKFORCE ═══ -->
+      <div class="section-card fade-in-section" id="sec-labor">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🧑‍🌾</span>
+          <span class="section-title">Workforce mobility (cross-border) with protections</span>
+          <span class="section-tag">labor</span>
+        </div>
+        <div class="section-body">
+          <div class="callout callout-danger">
+            <div class="callout-label">Critical safeguard</div>
+            Mobility can accelerate regen — only if rights are protected and exploitation is punished. This section is non-negotiable.
+          </div>
+
+          <div class="sub-heading">Safer mobility design</div>
+          <div class="prose">
+            <p><em>Portable status</em> (not tied to one employer), wage floors, independent ombuds, grievance SLAs, "exit without jeopardy," randomized inspections, and penalties that actually hurt exploitative employers. These aren't aspirational — they're the minimum viable safety net.</p>
+          </div>
+
+          <div class="sub-heading">Integration co-benefits</div>
+          <div class="prose">
+            <p>Pair restoration roles with credential pathways (safety, forestry, water, construction), language supports, and local community sponsor networks. Workers gain portable skills; host communities gain trained neighbors who contribute to local resilience.</p>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: write the workforce pathway policy</div>
+            <div class="prompt-text">Draft a cross-border restoration workforce pathway that integrates immigration easibility and rights protections. Include portability, oversight, inspection model, data reporting, and stop-conditions for exploitation indicators.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: PILOT LIBRARY ═══ -->
+      <div class="section-card fade-in-section" id="sec-cases">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🧪</span>
+          <span class="section-title">Pilot library (real transboundary examples)</span>
+          <span class="section-tag">cases</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>Use these as legitimacy anchors: real-world cross-border governance exists and can be adapted. Each example links to an official source you can verify and cite.</p>
+          </div>
+
+          <div class="pilot-card">
+            <div class="pilot-title">Trifinio-Fraternidad Transboundary Biosphere Reserve (Central America)</div>
+            <div class="pilot-desc">UNESCO describes work translating biodiversity framework ideas into a shared transboundary roadmap for ecological corridors (updated Feb 2026).</div>
+            <div class="pilot-use">Use: corridor governance + shared roadmap scaffolding</div>
+            <a class="pilot-link" href="https://www.unesco.org/en/articles/trifinio-fraternidad-transboundary-biosphere-reserve-translating-ideas-action" target="_blank" rel="noopener noreferrer">🔗 Source (UNESCO) ↗</a>
+          </div>
+
+          <div class="pilot-card">
+            <div class="pilot-title">UNECE Source-to-Sea guidance for transboundary basins (Oct 2025)</div>
+            <div class="pilot-desc">Practical guidance for managing transboundary basins from headwaters to sea — covers governance, pollution, and integrated management.</div>
+            <div class="pilot-use">Use: basin governance + integrated logistics framing</div>
+            <a class="pilot-link" href="https://unece.org/sites/default/files/2025-10/Guidance%20Note%20for%20STS%20management%20in%20a%20TB%20context.pdf" target="_blank" rel="noopener noreferrer">🔗 Source (UNECE PDF) ↗</a>
+          </div>
+
+          <div class="pilot-card">
+            <div class="pilot-title">World Bank — Dniester Basin restoration support (Oct 2025)</div>
+            <div class="pilot-desc">Moldova project for ecosystem restoration and pollution prevention in the Dniester basin (transboundary context).</div>
+            <div class="pilot-use">Use: financing + basin framing + nature-based solutions delivery</div>
+            <a class="pilot-link" href="https://projects.worldbank.org/en/projects-operations/project-detail/P180966" target="_blank" rel="noopener noreferrer">🔗 Source (World Bank) ↗</a>
+          </div>
+
+          <div class="pilot-card">
+            <div class="pilot-title">UNEP — Caspian Sea transboundary environmental standards (Nov 2025)</div>
+            <div class="pilot-desc">Protocol entering into force requiring transboundary environmental standards for major infrastructure around the Caspian.</div>
+            <div class="pilot-use">Use: legal standard-setting across shared seas</div>
+            <a class="pilot-link" href="https://www.unep.org/caspian/news-and-stories/story/new-era-environmental-protection-enters-force-caspian-sea-region" target="_blank" rel="noopener noreferrer">🔗 Source (UNEP) ↗</a>
+          </div>
+
+          <div class="pilot-card">
+            <div class="pilot-title">Protected Planet Report 2024</div>
+            <div class="pilot-desc">Global status of protected and conserved areas; useful baseline for corridor + protected area alignment across borders.</div>
+            <div class="pilot-use">Use: target-setting + baseline data for corridor alignment</div>
+            <a class="pilot-link" href="https://livereport.protectedplanet.net/" target="_blank" rel="noopener noreferrer">🔗 Source (Protected Planet) ↗</a>
+          </div>
+
+          <div class="prompt-card">
+            <div class="prompt-label">🤖 Claude prompt: pick one pilot and adapt to your border region</div>
+            <div class="prompt-text">Choose one of the real transboundary examples and adapt its governance approach to the selected eco-border region. Provide an implementation plan, logistics plan (green lanes + biosecurity), safeguards, KPIs, and financing options.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: CLAUDE PROMPT CHAIN ═══ -->
+      <div class="section-card fade-in-section" id="sec-prompt">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🧬</span>
+          <span class="section-title">Claude meta prompt chain (eco-border + logistics)</span>
+          <span class="section-tag">prompt</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>Designed to output a collection of standalone dashboards aimed at policymakers. Use these with Claude (or similar tools) to generate policy-grade documents. Each prompt builds on the others — run them in sequence for a complete policy package.</p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-block-header"><span>MASTER PROMPT (for each platform file)</span> <button class="prompt-copy-btn" onclick="copyCodeBlock(this)">Copy</button></div>
+            <pre>You are generating a policy-grade HTML dashboard for government officials.
+
+Theme: Inter-country regeneration logistics aligned to ecosystem borders
+(basins, ecoregions, corridors, regional seas, fire regimes),
+paired with safe immigration easibility for restoration delivery.
+
+Requirements:
+- Neutral institutional tone; no ideology; no escalation framing.
+- Define the eco-border and list bordering countries/jurisdictions.
+- Provide a logistics plan: customs "green lanes", phytosanitary/biosecurity
+  harmonization, shared nurseries/supply chain, data-sharing.
+- Provide workforce mobility design ONLY with rights-first protections:
+  portability, wage floors, independent ombuds, grievance SLAs, inspections.
+- Include stop-conditions + shutdown procedure that preserves rights.
+- Provide KPIs with thresholds and audit cadence.
+- Include financing options + anti-corruption controls.
+- Cite reputable sources (UN/UNECE/UNESCO/World Bank/OECD/IPBES).
+
+Output structure:
+1) Executive Summary (≤500 words)
+2) Eco-Border Definition + Countries
+3) Governance Architecture (joint desk + escalation)
+4) Logistics Engine (green lanes + biosecurity + supply)
+5) Workforce Pathways (protected mobility)
+6) 12-Month Pilot Plan + 3/5/10-year horizon
+7) Metrics Dashboard (KPIs + thresholds)
+8) Risks &amp; Failure Modes (stress test)
+9) Templates (MoU outline, checklists)
+10) References</pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-block-header"><span>LOGISTICS DEEP DIVE PROMPT</span> <button class="prompt-copy-btn" onclick="copyCodeBlock(this)">Copy</button></div>
+            <pre>Build a transboundary logistics plan:
+- Define eligible goods (seedlings, tools, sensors), pre-clearance rules,
+  batch traceability, randomized audits
+- Biosecurity/phytosanitary harmonization: certification, quarantine
+  triggers, incident response
+- Shared supply chain: twin nurseries, staging yards, maintenance funding,
+  chain-of-custody
+- Anti-corruption controls: transparent procurement, audit logs,
+  separation of duties
+Provide an implementation timeline and responsible agencies.</pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-block-header"><span>SAFETY + RIGHTS PROMPT (non-negotiables)</span> <button class="prompt-copy-btn" onclick="copyCodeBlock(this)">Copy</button></div>
+            <pre>Design safeguards:
+- Portability ("exit without jeopardy"), ombuds, grievance SLAs,
+  inspection model, wage compliance
+- Land/consent protections; anti-displacement triggers
+- Stop-conditions table (red flags → automatic pause/correction)
+- Shutdown procedure that preserves rights and prevents ecological harm</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: LOCAL WORKSPACE ═══ -->
+      <div class="section-card fade-in-section" id="sec-local">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🗃️</span>
+          <span class="section-title">Local workspace (plans + notes)</span>
+          <span class="section-tag">local</span>
+        </div>
+        <div class="section-body">
+          <div class="callout callout-green">
+            <div class="callout-label">Everything stored locally via IndexedDB</div>
+            Export is manual. No telemetry. Your data stays on your device.
+          </div>
+
+          <div class="sub-heading">Your pilot summary (local-only)</div>
+          <div class="form-group">
+            <textarea class="form-textarea" id="workspace-pilot" placeholder="Write a short cross-border pilot concept. This auto-saves (gently rate-limited)." style="min-height: 120px;" oninput="debounceSavePilot()"></textarea>
+            <div class="save-indicator" id="pilot-save-indicator">Not saved yet.</div>
+          </div>
+
+          <div class="sub-heading">Decision chips (store locally)</div>
+          <div class="prose" style="margin-bottom: 12px;">
+            <p>These help keep the program focused and auditable. Add draft agreements, key decisions, or policy commitments.</p>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input class="form-input" id="chip-input" type="text" placeholder="Type a draft agreement or decision..." style="flex:1;" onkeydown="if(event.key==='Enter')addChip()" />
+            <button class="btn btn-secondary" onclick="addChip()">+ Add</button>
+          </div>
+
+          <div class="chip-container" id="chip-container"></div>
+
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 12px;">
+            <button class="btn btn-danger" onclick="clearChips()">Clear local agreements</button>
+            <span class="save-indicator" id="chip-count">Agreements stored: 0</span>
+          </div>
+
+          <div class="prompt-card" style="margin-top: 24px;">
+            <div class="prompt-label">🤖 Claude prompt: convert my workspace notes into a cabinet-ready memo</div>
+            <div class="prompt-text">Convert my pilot summary, checklist, and MoU outline into a cabinet-ready memo: include objective, legal feasibility notes, cost model, governance, logistics, safeguards, KPIs, and stop-conditions. Keep it neutral, implementable, and auditable.</div>
+            <button class="prompt-copy-btn" onclick="copyPrompt(this)">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SECTION: SOURCES ═══ -->
+      <div class="section-card fade-in-section" id="sec-links">
+        <div class="section-header" onclick="toggleSection(this)" role="button" aria-expanded="false" tabindex="0">
+          <span class="section-chevron">▸</span>
+          <span class="section-icon">🔗</span>
+          <span class="section-title">Sources &amp; reading list (high-signal)</span>
+          <span class="section-tag">links</span>
+        </div>
+        <div class="section-body">
+          <div class="prose">
+            <p>External links are optional (online-only). This dashboard stays functional offline.</p>
+          </div>
+
+          <div class="sub-heading">Transboundary governance &amp; logistics anchors</div>
+
+          <div class="link-item">
+            <div class="link-bullet"></div>
+            <div class="link-text"><strong>UNESCO (Feb 2026):</strong> Trifinio-Fraternidad transboundary biosphere reserve corridor roadmap. <a href="https://www.unesco.org/en/articles/trifinio-fraternidad-transboundary-biosphere-reserve-translating-ideas-action" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+          </div>
+
+          <div class="link-item">
+            <div class="link-bullet"></div>
+            <div class="link-text"><strong>UNECE (Oct 2025, PDF):</strong> Guidance Note for Source-to-Sea Management in transboundary basins. <a href="https://unece.org/sites/default/files/2025-10/Guidance%20Note%20for%20STS%20management%20in%20a%20TB%20context.pdf" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+          </div>
+
+          <div class="link-item">
+            <div class="link-bullet"></div>
+            <div class="link-text"><strong>World Bank (Oct 2025):</strong> Moldova project supporting Dniester basin ecosystem restoration. <a href="https://projects.worldbank.org/en/projects-operations/project-detail/P180966" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+          </div>
+
+          <div class="link-item">
+            <div class="link-bullet"></div>
+            <div class="link-text"><strong>UNEP (Nov 2025):</strong> Caspian Sea transboundary environmental standards protocol enters into force. <a href="https://www.unep.org/caspian/news-and-stories/story/new-era-environmental-protection-enters-force-caspian-sea-region" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+          </div>
+
+          <div class="link-item">
+            <div class="link-bullet"></div>
+            <div class="link-text"><strong>Protected Planet Report 2024:</strong> Global protected/conserved areas status (Target 3 context). <a href="https://livereport.protectedplanet.net/" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+          </div>
+
+          <div class="sub-heading" style="margin-top: 28px;">Attributions &amp; licensing</div>
+          <div class="prose">
+            <p>This page uses no third-party libraries. UI patterns are based on common open web practices (collapsible details, sticky nav, local-first storage). External sources are linked for reference; follow their terms when quoting or reusing.</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content-col -->
+  </div><!-- end main-content -->
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-shield">
+      🛡️ <strong>Zero-Harm &amp; Anti-Inversion note</strong> — This dashboard is designed for peaceful, lawful inter-country regeneration planning. It prioritizes rights, consent, biosecurity, auditability, and transparent logistics. All data stays on your device (IndexedDB), export is manual, and there is no hidden telemetry. 🌱
+    </div>
+    <div class="footer-sub">
+      Offline-capable · local-only · rights-first · no tracking · no analytics · no third-party scripts
+    </div>
+  </footer>
+</div><!-- end app-wrapper -->
+
+<!-- ═══════════ SEARCH MODAL ═══════════ -->
+<div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeSearch()" role="dialog" aria-label="Search sections">
+  <div class="search-box">
+    <div class="search-input-row">
+      <span class="icon">🔎</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search sections, topics, prompts..." autocomplete="off" oninput="filterSearch()" onkeydown="handleSearchNav(event)" />
+    </div>
+    <div class="search-results" id="searchResults"></div>
+    <div class="search-footer">
+      <span><kbd>↑↓</kbd> navigate</span>
+      <span><kbd>Enter</kbd> go</span>
+      <span><kbd>Esc</kbd> close</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ POLICY HUD (XP + CONSTELLATION) ═══════════ -->
+<div class="hud-panel" id="hudPanel">
+  <div class="hud-header" onclick="toggleHUD()">
+    <span class="hud-title">🧭 Policy HUD</span>
+    <button class="hud-toggle" id="hudToggleBtn">Collapse</button>
+  </div>
+  <div class="hud-body" id="hudBody">
+    <canvas id="constellationCanvas" aria-label="Eco-border constellation visualization"></canvas>
+
+    <div class="hud-stat">
+      <span class="hud-stat-label">Policy XP</span>
+      <span class="hud-stat-value" id="xpValue">0</span>
+    </div>
+    <div class="xp-bar-bg">
+      <div class="xp-bar-fill" id="xpBar" style="width: 0%;"></div>
+    </div>
+
+    <div class="hud-stat">
+      <span class="hud-stat-label">Readiness</span>
+      <span class="hud-stat-value" id="readinessValue">0%</span>
+    </div>
+    <div class="readiness-bar-bg">
+      <div class="readiness-bar-fill" id="readinessBar" style="width: 0%;"></div>
+    </div>
+
+    <div class="hud-actions">
+      <button class="hud-btn" onclick="addXP(10)">+10 XP</button>
+      <button class="hud-btn" onclick="addXP(50)">+50 XP</button>
+      <button class="hud-btn danger" onclick="resetXP()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden file input for import -->
+<input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="handleImportFile(event)" />
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CORE APPLICATION LOGIC
+   ═══════════════════════════════════════════════════════════════ */
+
+// ─── IndexedDB Setup ───
+// All persistent storage is local-only. No data leaves this device.
+const DB_NAME = 'EcoBorderRegenLogistics';
+const DB_VERSION = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('state')) {
+        db.createObjectStore('state', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e);
+  });
+}
+
+async function dbGet(key) {
+  if (!db) await openDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction('state', 'readonly');
+    const req = tx.objectStore('state').get(key);
+    req.onsuccess = () => resolve(req.result?.value ?? null);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function dbSet(key, value) {
+  if (!db) await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('state', 'readwrite');
+    tx.objectStore('state').put({ key, value });
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e);
+  });
+}
+
+async function dbGetAll() {
+  if (!db) await openDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction('state', 'readonly');
+    const req = tx.objectStore('state').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+}
+
+async function dbClear() {
+  if (!db) await openDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction('state', 'readwrite');
+    tx.objectStore('state').clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+  });
+}
+
+// ─── Toast notification ───
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// ─── Section toggle (collapsible) ───
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const isOpen = header.classList.toggle('open');
+  body.classList.toggle('open', isOpen);
+  header.setAttribute('aria-expanded', isOpen);
+
+  // Track for XP: opening sections earns readiness
+  if (isOpen) {
+    const card = header.closest('.section-card');
+    if (card && !card.dataset.visited) {
+      card.dataset.visited = 'true';
+      updateReadiness();
+    }
+  }
+}
+
+// ─── Tab system ───
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const tabGroup = btn.closest('.tab-group');
+  tabGroup.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+  tabGroup.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  btn.setAttribute('aria-selected', 'true');
+  const panel = tabGroup.querySelector(`[data-panel="${btn.dataset.tab}"]`);
+  if (panel) panel.classList.add('active');
+});
+
+// ─── Copy prompt text ───
+function copyPrompt(btn) {
+  const card = btn.closest('.prompt-card');
+  const text = card.querySelector('.prompt-text').textContent.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  }).catch(() => showToast('Copy failed — try selecting manually'));
+}
+
+function copyCodeBlock(btn) {
+  const block = btn.closest('.code-block');
+  const text = block.querySelector('pre').textContent.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  }).catch(() => showToast('Copy failed'));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEARCH (Ctrl+K)
+// ═══════════════════════════════════════════════════════════════
+
+const searchableItems = [
+  { label: '🗺️ Premise: ecosystems ignore borders', section: 'sec-premise', tags: 'core ecosystem premise transboundary' },
+  { label: '🛡️ Non-negotiables (rights & safeguards)', section: 'sec-rights', tags: 'rights safeguards stop-conditions labor' },
+  { label: '🔁 Cross-border cascade loop', section: 'sec-loop', tags: 'model loop cascade system dynamics' },
+  { label: '🧭 Eco-Border Atlas builder', section: 'sec-atlas', tags: 'atlas builder generator region countries' },
+  { label: '🧩 Ecosystem border types', section: 'sec-types', tags: 'types basins corridors seas fire lakes mountains' },
+  { label: '📄 Templates (MoU + checklists)', section: 'sec-mou', tags: 'templates mou memorandum checklist agreement' },
+  { label: '🚚 Transboundary logistics engine', section: 'sec-ops', tags: 'logistics operations policy levers desk' },
+  { label: '🟢 Customs Green Lanes', section: 'sec-trade', tags: 'customs green lanes trade fast clearance' },
+  { label: '🧫 Biosecurity & phytosanitary', section: 'sec-safety', tags: 'biosecurity phytosanitary harmonization quarantine' },
+  { label: '🌱 Shared supply chain', section: 'sec-supply', tags: 'supply chain nurseries procurement staging' },
+  { label: '🧑‍🌾 Workforce mobility', section: 'sec-labor', tags: 'workforce labor mobility immigration rights' },
+  { label: '🧪 Pilot library (real examples)', section: 'sec-cases', tags: 'pilots examples cases trifinio dniester caspian' },
+  { label: '🧬 Claude prompt chain', section: 'sec-prompt', tags: 'prompt claude meta chain master' },
+  { label: '🗃️ Local workspace', section: 'sec-local', tags: 'workspace local notes pilot decisions' },
+  { label: '🔗 Sources & reading list', section: 'sec-links', tags: 'sources links references reading' },
+];
+
+let searchHighlight = 0;
+
+function openSearch() {
+  const overlay = document.getElementById('searchOverlay');
+  overlay.classList.add('open');
+  const input = document.getElementById('searchInput');
+  input.value = '';
+  input.focus();
+  filterSearch();
+}
+
+function closeSearch() {
+  document.getElementById('searchOverlay').classList.remove('open');
+}
+
+function filterSearch() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  const results = document.getElementById('searchResults');
+  const items = query ? searchableItems.filter(i =>
+    i.label.toLowerCase().includes(query) || i.tags.includes(query)
+  ) : searchableItems;
+
+  searchHighlight = 0;
+  results.innerHTML = items.map((item, i) =>
+    `<div class="search-result-item ${i === 0 ? 'highlighted' : ''}" data-section="${item.section}" onclick="goToSection('${item.section}')">
+      ${item.label}
+      <span class="search-result-tag">${item.section.replace('sec-', '')}</span>
+    </div>`
+  ).join('');
+}
+
+function handleSearchNav(e) {
+  const items = document.querySelectorAll('#searchResults .search-result-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    items[searchHighlight]?.classList.remove('highlighted');
+    searchHighlight = (searchHighlight + 1) % items.length;
+    items[searchHighlight]?.classList.add('highlighted');
+    items[searchHighlight]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    items[searchHighlight]?.classList.remove('highlighted');
+    searchHighlight = (searchHighlight - 1 + items.length) % items.length;
+    items[searchHighlight]?.classList.add('highlighted');
+    items[searchHighlight]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const section = items[searchHighlight]?.dataset.section;
+    if (section) goToSection(section);
+  } else if (e.key === 'Escape') {
+    closeSearch();
+  }
+}
+
+function goToSection(id) {
+  closeSearch();
+  const card = document.getElementById(id);
+  if (!card) return;
+
+  // Open the section
+  const header = card.querySelector('.section-header');
+  if (header && !header.classList.contains('open')) {
+    toggleSection(header);
+  }
+
+  // Scroll to it
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Highlight briefly
+  card.style.boxShadow = '0 0 0 2px var(--accent), ' + getComputedStyle(card).boxShadow;
+  setTimeout(() => { card.style.boxShadow = ''; }, 1500);
+}
+
+// Ctrl+K listener
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    const overlay = document.getElementById('searchOverlay');
+    if (overlay.classList.contains('open')) closeSearch();
+    else openSearch();
+  }
+  if (e.key === 'Escape') closeSearch();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ATLAS BUILDER
+// ═══════════════════════════════════════════════════════════════
+
+// Region presets with prefilled data
+const regionPresets = {
+  dniester: {
+    type: 'basin',
+    countries: 'Moldova, Ukraine',
+    agencies: 'Moldova Ministry of Environment, Ukraine Ministry of Environmental Protection, OSCE Mission',
+    notes: 'Shared river basin with pollution from agriculture and industry. Climate impacts on water flow. World Bank restoration support in progress.'
+  },
+  trifinio: {
+    type: 'corridor',
+    countries: 'El Salvador, Guatemala, Honduras',
+    agencies: 'Trifinio Plan Commission, MARN (El Salvador), MAGA (Guatemala), MiAmbiente (Honduras)',
+    notes: 'UNESCO Biosphere Reserve spanning three countries. Critical corridor for Central American biodiversity. Deforestation and agricultural expansion threats.'
+  },
+  caspian: {
+    type: 'sea',
+    countries: 'Azerbaijan, Iran, Kazakhstan, Russia, Turkmenistan',
+    agencies: 'Tehran Convention Secretariat, National environment agencies of all five littoral states',
+    notes: 'Largest enclosed inland body of water. Oil/gas development, fisheries collapse (sturgeon), pollution, and new environmental protocol (2025).'
+  },
+  greatlakes: {
+    type: 'lake',
+    countries: 'Canada, United States',
+    agencies: 'International Joint Commission (IJC), Environment & Climate Change Canada, US EPA Great Lakes Office',
+    notes: '21% of world surface freshwater. Invasive species (carp, mussels), algal blooms, industrial legacy contamination. Strong bilateral governance baseline.'
+  },
+  danube: {
+    type: 'basin',
+    countries: 'Germany, Austria, Slovakia, Hungary, Croatia, Serbia, Romania, Bulgaria, Moldova, Ukraine (+ others)',
+    agencies: 'International Commission for the Protection of the Danube River (ICPDR), EU DG Environment',
+    notes: 'Most international river basin in the world (19 countries). Flood management, nutrient pollution, hydropower vs. ecology tensions.'
+  },
+  mekong: {
+    type: 'basin',
+    countries: 'China, Myanmar, Laos, Thailand, Cambodia, Vietnam',
+    agencies: 'Mekong River Commission (MRC), Lancang-Mekong Cooperation (LMC)',
+    notes: 'Critical food security basin. Hydropower dams fragment flow. Sediment and fisheries impacts downstream. Two overlapping governance frameworks.'
+  }
+};
+
+function prefillRegion() {
+  const key = document.getElementById('atlas-region').value;
+  const p = regionPresets[key];
+  if (!p) return;
+
+  // Set border type
+  if (p.type) document.getElementById('atlas-type').value = p.type;
+  document.getElementById('atlas-countries').value = p.countries;
+  document.getElementById('atlas-agencies').value = p.agencies;
+  document.getElementById('atlas-notes').value = p.notes;
+  onAtlasChange();
+}
+
+function onAtlasChange() {
+  // Clear previous outputs
+  document.getElementById('atlas-checklist-content').style.display = 'none';
+  document.getElementById('atlas-checklist-placeholder').style.display = 'block';
+  document.getElementById('atlas-mou-content').style.display = 'none';
+  document.getElementById('atlas-mou-placeholder').style.display = 'block';
+}
+
+// Checklist templates per border type
+const checklistTemplates = {
+  basin: [
+    'Map shared watershed boundaries (upstream/downstream)',
+    'Establish joint water quality monitoring stations',
+    'Harmonize pollution enforcement standards',
+    'Create flood coordination protocol with mutual aid',
+    'Align sediment management and dam release schedules',
+    'Design cross-border "green lane" for restoration seedlings',
+    'Set up twin nurseries for riparian vegetation',
+    'Develop shared pest/pathogen detection protocol',
+    'Draft workforce mobility pathway with protections',
+    'Define stop-conditions for pollution spikes or labor issues',
+    'Agree on data-sharing framework and reporting cadence',
+    'Secure financing (bilateral + multilateral + green bonds)'
+  ],
+  ecoregion: [
+    'Map ecoregion transition zone across border',
+    'Inventory invasive species pathways at the seam',
+    'Harmonize land-use zoning near the eco-border',
+    'Establish joint fire/grazing management protocol',
+    'Design cross-border restoration corridors',
+    'Set up twin nurseries for native species (both biomes)',
+    'Create "green lane" for restoration materials',
+    'Harmonize phytosanitary standards',
+    'Draft workforce mobility framework',
+    'Define stop-conditions and audit cadence',
+    'Community consultation on both sides of border',
+    'Financing: joint grant applications + cost-sharing'
+  ],
+  corridor: [
+    'Map wildlife migration routes across border',
+    'Inventory infrastructure fragmentation points',
+    'Align protection status on both sides',
+    'Design wildlife crossings at key road/rail points',
+    'Harmonize anti-poaching enforcement',
+    'Create joint ranger patrols and monitoring',
+    'Set up native vegetation nurseries for corridor restoration',
+    'Establish "green lane" for restoration materials',
+    'Draft workforce mobility pathway with protections',
+    'Define stop-conditions for habitat loss indicators',
+    'Community engagement and benefit-sharing',
+    'Secure long-term financing for corridor maintenance'
+  ],
+  sea: [
+    'Define shared marine ecosystem boundaries',
+    'Harmonize fisheries governance and quotas',
+    'Align marine protected area designations',
+    'Create joint oil spill response protocol',
+    'Harmonize shipping pollution standards',
+    'Establish joint marine monitoring network',
+    'Design coastal restoration supply chain',
+    'Set up "green lane" for restoration equipment/materials',
+    'Draft workforce mobility for marine restoration crews',
+    'Define stop-conditions for fisheries collapse indicators',
+    'Coordinate on climate adaptation planning',
+    'Secure financing for transboundary marine restoration'
+  ],
+  fire: [
+    'Map shared fire regime zones across border',
+    'Establish mutual aid agreements for fire response',
+    'Pre-position fire response materials at eco-border',
+    'Harmonize fuel management standards and practices',
+    'Create joint smoke impact monitoring and alerts',
+    'Design post-fire restoration supply chain',
+    'Set up native seed banks for fire-adapted species',
+    'Establish "green lane" for emergency restoration materials',
+    'Draft workforce mobility for fire/restoration crews',
+    'Define stop-conditions for ecological damage thresholds',
+    'Joint community evacuation and protection planning',
+    'Cross-border insurance and cost-sharing for fire damage'
+  ],
+  mountain: [
+    'Map shared mountain system (headwaters, ridgelines)',
+    'Monitor glacier/snowpack changes jointly',
+    'Harmonize landslide risk management',
+    'Coordinate hydropower vs. ecology decisions',
+    'Protect biodiversity hotspots across borders',
+    'Set up high-altitude nurseries for restoration',
+    'Create "green lane" for restoration materials',
+    'Harmonize grazing management in alpine zones',
+    'Draft workforce mobility for mountain restoration',
+    'Define stop-conditions for water flow disruption',
+    'Joint climate adaptation planning',
+    'Financing for long-term mountain ecosystem maintenance'
+  ],
+  lake: [
+    'Map shared lake ecosystem boundaries',
+    'Joint monitoring of eutrophication and water quality',
+    'Coordinate invasive species prevention',
+    'Harmonize fisheries management and quotas',
+    'Align shoreline development standards',
+    'Design littoral zone restoration supply chain',
+    'Set up native aquatic plant nurseries',
+    'Create "green lane" for restoration materials',
+    'Draft workforce mobility for lake restoration crews',
+    'Define stop-conditions for water quality collapse',
+    'Joint recreation and tourism management',
+    'Secure transboundary financing and grants'
+  ]
+};
+
+function generateAtlas() {
+  const type = document.getElementById('atlas-type').value;
+  const countries = document.getElementById('atlas-countries').value.trim();
+  const agencies = document.getElementById('atlas-agencies').value.trim();
+  const notes = document.getElementById('atlas-notes').value.trim();
+
+  if (!type) { showToast('Please select an ecosystem border type'); return; }
+  if (!countries) { showToast('Please enter bordering countries'); return; }
+
+  // Generate checklist
+  const items = checklistTemplates[type] || checklistTemplates.basin;
+  const checklistHTML = `<ul class="checklist" id="generated-checklist">${items.map(item =>
+    `<li><input type="checkbox" onchange="saveGeneratedChecklist()"> ${item}</li>`
+  ).join('')}</ul>
+<p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">Generated for: <strong>${type}</strong> border · ${countries}</p>`;
+
+  document.getElementById('atlas-checklist-placeholder').style.display = 'none';
+  document.getElementById('atlas-checklist-content').style.display = 'block';
+  document.getElementById('atlas-checklist-content').innerHTML = checklistHTML;
+
+  // Generate MoU outline
+  const typeName = {
+    basin: 'River Basin / Watershed', ecoregion: 'Ecoregion Seam', corridor: 'Ecological Corridor',
+    sea: 'Regional Sea', fire: 'Fire Regime', mountain: 'Mountain System', lake: 'Transboundary Lake'
+  }[type] || type;
+
+  const mouHTML = `<div class="code-block" style="margin:0;">
+<div class="code-block-header"><span>Draft MoU Outline</span> <button class="prompt-copy-btn" onclick="copyCodeBlock(this)">Copy</button></div>
+<pre>MEMORANDUM OF UNDERSTANDING
+Transboundary Ecological Restoration Cooperation
+Eco-Border Type: ${typeName}
+
+BETWEEN: ${countries.split(',').map(c => c.trim()).join('\n         AND: ')}
+
+LEAD AGENCIES: ${agencies || '[to be specified]'}
+
+ECOLOGICAL CONTEXT:
+${notes || '[describe key ecological features, threats, and opportunities]'}
+
+ARTICLE 1: PURPOSE
+Establish a cooperative framework for ecological restoration
+across the shared ${typeName.toLowerCase()} boundary.
+
+ARTICLE 2: GOVERNANCE
+- Joint Regen Logistics Desk: customs + environment + agriculture
+  + immigration representatives from each jurisdiction
+- Decision SLAs: routine approvals within 5 business days
+- Escalation: unresolved issues to ministerial level within 15 days
+- Transparency: quarterly public reporting
+
+ARTICLE 3: LOGISTICS ENGINE
+- Green lane eligibility criteria for restoration inputs
+- Pre-clearance: approved vendor list + batch IDs + digital manifests
+- Randomized audit schedule (minimum 10% of shipments)
+- Quarantine triggers: immediate pause if invasive/pathogen detected
+- Shared nurseries: twin facility model with harmonized genetics policy
+- Staging yards near eco-border for seasonal readiness
+
+ARTICLE 4: BIOSECURITY & PHYTOSANITARY
+- Shared pest/pathogen list (updated quarterly)
+- Mutual recognition of certified nurseries
+- Batch traceability from seed source to planting site
+- Incident response: 48-hour notification + joint investigation
+
+ARTICLE 5: WORKFORCE MOBILITY
+- Portable status (not tied to single employer)
+- Wage floors aligned to host-country cost of living
+- Independent ombuds with authority in both jurisdictions
+- Grievance SLA: initial response within 48 hours
+- "Exit without jeopardy" guarantee
+- Randomized workplace inspections (unannounced)
+
+ARTICLE 6: SAFEGUARDS & STOP-CONDITIONS
+[See generated checklist for triggers and responses]
+- Shutdown procedure preserves worker rights + ecological gains
+- Audit cadence: monthly during pilot, quarterly after
+
+ARTICLE 7: FINANCING
+- Cost-sharing model: [proportional / equal / donor-funded]
+- Anti-corruption: separation of duties, transparent procurement
+- Public budget reporting
+
+ARTICLE 8: DURATION & REVIEW
+- Initial term: 12-month pilot
+- Review gates at 3, 6, 9, 12 months
+- Extension subject to KPI achievement
+
+SIGNED: _______________ DATE: _______________</pre></div>`;
+
+  document.getElementById('atlas-mou-placeholder').style.display = 'none';
+  document.getElementById('atlas-mou-content').style.display = 'block';
+  document.getElementById('atlas-mou-content').innerHTML = mouHTML;
+
+  showToast('Atlas generated — checklist + MoU ready');
+  addXP(25);
+}
+
+async function saveAtlas() {
+  const data = {
+    type: document.getElementById('atlas-type').value,
+    region: document.getElementById('atlas-region').value,
+    countries: document.getElementById('atlas-countries').value,
+    agencies: document.getElementById('atlas-agencies').value,
+    notes: document.getElementById('atlas-notes').value,
+    timestamp: new Date().toISOString()
+  };
+  await dbSet('atlas', data);
+  document.getElementById('atlas-checklist-saved').textContent = '✓ Saved to local';
+  document.getElementById('atlas-checklist-saved').className = 'save-indicator saved';
+  document.getElementById('atlas-mou-saved').textContent = '✓ Saved to local';
+  document.getElementById('atlas-mou-saved').className = 'save-indicator saved';
+  showToast('Atlas saved locally');
+}
+
+async function saveGeneratedChecklist() {
+  const checks = document.querySelectorAll('#generated-checklist input[type="checkbox"]');
+  const state = Array.from(checks).map(c => c.checked);
+  await dbSet('atlas-checklist-state', state);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MOU CHECKLIST PERSISTENCE
+// ═══════════════════════════════════════════════════════════════
+
+async function saveChecklistState() {
+  const checks = document.querySelectorAll('#mou-checklist input[type="checkbox"]');
+  const state = Array.from(checks).map(c => c.checked);
+  await dbSet('mou-checklist', state);
+  updateReadiness();
+}
+
+async function loadChecklistState() {
+  const state = await dbGet('mou-checklist');
+  if (!state) return;
+  const checks = document.querySelectorAll('#mou-checklist input[type="checkbox"]');
+  state.forEach((val, i) => { if (checks[i]) checks[i].checked = val; });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOCAL WORKSPACE (pilot notes + decision chips)
+// ═══════════════════════════════════════════════════════════════
+
+let pilotSaveTimeout = null;
+
+function debounceSavePilot() {
+  clearTimeout(pilotSaveTimeout);
+  document.getElementById('pilot-save-indicator').textContent = 'Saving...';
+  pilotSaveTimeout = setTimeout(async () => {
+    const text = document.getElementById('workspace-pilot').value;
+    await dbSet('pilot-summary', text);
+    document.getElementById('pilot-save-indicator').textContent = '✓ Saved';
+    document.getElementById('pilot-save-indicator').className = 'save-indicator saved';
+  }, 800);
+}
+
+async function loadPilotSummary() {
+  const text = await dbGet('pilot-summary');
+  if (text) {
+    document.getElementById('workspace-pilot').value = text;
+    document.getElementById('pilot-save-indicator').textContent = '✓ Loaded from local';
+    document.getElementById('pilot-save-indicator').className = 'save-indicator saved';
+  }
+}
+
+// Decision chips
+let chips = [];
+
+async function loadChips() {
+  chips = (await dbGet('decision-chips')) || [];
+  renderChips();
+}
+
+function renderChips() {
+  const container = document.getElementById('chip-container');
+  container.innerHTML = chips.map((chip, i) =>
+    `<div class="chip">${chip} <button class="chip-remove" onclick="removeChip(${i})" title="Remove">×</button></div>`
+  ).join('');
+  document.getElementById('chip-count').textContent = `Agreements stored: ${chips.length}`;
+}
+
+async function addChip() {
+  const input = document.getElementById('chip-input');
+  const text = input.value.trim();
+  if (!text) return;
+  chips.push(text);
+  await dbSet('decision-chips', chips);
+  input.value = '';
+  renderChips();
+  addXP(5);
+}
+
+async function removeChip(index) {
+  chips.splice(index, 1);
+  await dbSet('decision-chips', chips);
+  renderChips();
+}
+
+async function clearChips() {
+  if (!confirm('Clear all stored agreements? This cannot be undone.')) return;
+  chips = [];
+  await dbSet('decision-chips', chips);
+  renderChips();
+  showToast('Agreements cleared');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// XP + READINESS SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+let xp = 0;
+const XP_MAX = 500;
+
+async function loadXP() {
+  xp = (await dbGet('policy-xp')) || 0;
+  updateXPDisplay();
+}
+
+async function addXP(amount) {
+  xp = Math.min(xp + amount, XP_MAX);
+  await dbSet('policy-xp', xp);
+  updateXPDisplay();
+}
+
+async function resetXP() {
+  xp = 0;
+  await dbSet('policy-xp', 0);
+  updateXPDisplay();
+  showToast('XP reset');
+}
+
+function updateXPDisplay() {
+  document.getElementById('xpValue').textContent = xp;
+  document.getElementById('xpBar').style.width = `${(xp / XP_MAX) * 100}%`;
+}
+
+function updateReadiness() {
+  const checks = document.querySelectorAll('#mou-checklist input[type="checkbox"]');
+  const total = checks.length;
+  const checked = Array.from(checks).filter(c => c.checked).length;
+
+  // Also count visited sections
+  const allSections = document.querySelectorAll('.section-card');
+  const visited = document.querySelectorAll('.section-card[data-visited="true"]').length;
+  const sectionScore = (visited / allSections.length) * 50;
+  const checkScore = (checked / total) * 50;
+
+  const readiness = Math.round(sectionScore + checkScore);
+  document.getElementById('readinessValue').textContent = readiness + '%';
+  document.getElementById('readinessBar').style.width = readiness + '%';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HUD TOGGLE
+// ═══════════════════════════════════════════════════════════════
+
+function toggleHUD() {
+  const panel = document.getElementById('hudPanel');
+  const btn = document.getElementById('hudToggleBtn');
+  panel.classList.toggle('collapsed');
+  btn.textContent = panel.classList.contains('collapsed') ? 'Expand' : 'Collapse';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════════════
+
+async function exportData() {
+  const allData = await dbGetAll();
+  const exportObj = {};
+  allData.forEach(item => { exportObj[item.key] = item.value; });
+  exportObj._exportDate = new Date().toISOString();
+  exportObj._source = 'EcoBorderRegenLogistics';
+
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `eco-border-regen-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data exported');
+}
+
+function importData() {
+  document.getElementById('importFileInput').click();
+}
+
+async function handleImportFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (data._source !== 'EcoBorderRegenLogistics') {
+      showToast('Invalid import file');
+      return;
+    }
+    for (const [key, value] of Object.entries(data)) {
+      if (!key.startsWith('_')) {
+        await dbSet(key, value);
+      }
+    }
+    showToast('Data imported — refreshing...');
+    setTimeout(() => location.reload(), 800);
+  } catch (e) {
+    showToast('Import failed: invalid JSON');
+  }
+  event.target.value = '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOC ACTIVE STATE (scroll spy)
+// ═══════════════════════════════════════════════════════════════
+
+function updateActiveTOC() {
+  const sections = document.querySelectorAll('.section-card');
+  const links = document.querySelectorAll('.toc-link');
+  let activeId = '';
+
+  sections.forEach(section => {
+    const rect = section.getBoundingClientRect();
+    if (rect.top <= 120 && rect.bottom > 120) {
+      activeId = section.id;
+    }
+  });
+
+  links.forEach(link => {
+    link.classList.toggle('active', link.dataset.section === activeId);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCROLL ANIMATIONS (fade in sections)
+// ═══════════════════════════════════════════════════════════════
+
+function initScrollAnimations() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.fade-in-section').forEach(el => observer.observe(el));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PARTICLE SYSTEM (atmospheric background)
+// Photorealistic particles simulating pollen/spores drifting
+// ═══════════════════════════════════════════════════════════════
+
+function initParticles() {
+  const canvas = document.getElementById('particleCanvas');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let w, h;
+  let animId;
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+
+  function createParticle() {
+    return {
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: -Math.random() * 0.2 - 0.05,
+      r: Math.random() * 2.5 + 0.5,
+      alpha: Math.random() * 0.3 + 0.05,
+      hue: 140 + Math.random() * 30,
+      life: Math.random() * 600 + 200,
+      maxLife: 0
+    };
+  }
+
+  function init() {
+    resize();
+    particles = [];
+    const count = Math.min(Math.floor((w * h) / 12000), 120);
+    for (let i = 0; i < count; i++) {
+      const p = createParticle();
+      p.maxLife = p.life;
+      particles.push(p);
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+
+    particles.forEach((p, i) => {
+      p.x += p.vx + Math.sin(Date.now() * 0.0003 + i) * 0.08;
+      p.y += p.vy;
+      p.life--;
+
+      const lifeRatio = p.life / p.maxLife;
+      const alpha = p.alpha * (lifeRatio < 0.2 ? lifeRatio / 0.2 : lifeRatio > 0.8 ? (1 - lifeRatio) / 0.2 : 1);
+
+      // Glow effect
+      const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3);
+      gradient.addColorStop(0, `hsla(${p.hue}, 70%, 65%, ${alpha})`);
+      gradient.addColorStop(0.4, `hsla(${p.hue}, 60%, 50%, ${alpha * 0.4})`);
+      gradient.addColorStop(1, `hsla(${p.hue}, 50%, 40%, 0)`);
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Core dot
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 80%, 75%, ${alpha * 1.5})`;
+      ctx.fill();
+
+      // Respawn if dead or off-screen
+      if (p.life <= 0 || p.y < -20 || p.x < -20 || p.x > w + 20) {
+        Object.assign(particles[i], createParticle());
+        particles[i].y = h + 10;
+        particles[i].maxLife = particles[i].life;
+      }
+    });
+
+    // Subtle connection lines between close particles
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          const a = (1 - dist / 120) * 0.06;
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `hsla(150, 50%, 50%, ${a})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    animId = requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', () => { resize(); });
+
+  // Reduce animation when tab not visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelAnimationFrame(animId);
+    else draw();
+  });
+
+  init();
+  draw();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONSTELLATION CANVAS (mini visualization in HUD)
+// ═══════════════════════════════════════════════════════════════
+
+function initConstellation() {
+  const canvas = document.getElementById('constellationCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+  }
+
+  resize();
+
+  // Constellation nodes represent eco-border concepts
+  const nodes = [
+    { label: '🧭', x: 0.5, y: 0.3 },
+    { label: '🌊', x: 0.2, y: 0.2 },
+    { label: '🌲', x: 0.8, y: 0.2 },
+    { label: '🔥', x: 0.15, y: 0.7 },
+    { label: '🏔️', x: 0.85, y: 0.7 },
+    { label: '🐟', x: 0.35, y: 0.8 },
+    { label: '🦅', x: 0.65, y: 0.8 },
+  ];
+
+  const edges = [
+    [0,1],[0,2],[0,3],[0,4],[1,3],[2,4],[1,5],[2,6],[3,5],[4,6],[5,6]
+  ];
+
+  function draw() {
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+    ctx.clearRect(0, 0, w, h);
+
+    const t = Date.now() * 0.001;
+
+    // Draw edges with pulsing opacity
+    edges.forEach(([a, b]) => {
+      const na = nodes[a], nb = nodes[b];
+      const ax = na.x * w, ay = na.y * h;
+      const bx = nb.x * w, by = nb.y * h;
+      const alpha = 0.12 + Math.sin(t + a + b) * 0.06;
+
+      ctx.beginPath();
+      ctx.moveTo(ax + Math.sin(t * 0.7 + a) * 3, ay + Math.cos(t * 0.5 + a) * 2);
+      ctx.lineTo(bx + Math.sin(t * 0.7 + b) * 3, by + Math.cos(t * 0.5 + b) * 2);
+      ctx.strokeStyle = `rgba(74, 222, 128, ${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Draw nodes
+    nodes.forEach((n, i) => {
+      const x = n.x * w + Math.sin(t * 0.7 + i) * 3;
+      const y = n.y * h + Math.cos(t * 0.5 + i) * 2;
+
+      // Glow
+      const grd = ctx.createRadialGradient(x, y, 0, x, y, 12);
+      grd.addColorStop(0, 'rgba(74, 222, 128, 0.2)');
+      grd.addColorStop(1, 'rgba(74, 222, 128, 0)');
+      ctx.beginPath();
+      ctx.arc(x, y, 12, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      ctx.font = '12px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(n.label, x, y);
+    });
+
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INITIALIZATION
+// ═══════════════════════════════════════════════════════════════
+
+async function init() {
+  await openDB();
+
+  // Load persisted state
+  await loadXP();
+  await loadChecklistState();
+  await loadPilotSummary();
+  await loadChips();
+
+  // Load atlas if saved
+  const atlas = await dbGet('atlas');
+  if (atlas) {
+    if (atlas.type) document.getElementById('atlas-type').value = atlas.type;
+    if (atlas.countries) document.getElementById('atlas-countries').value = atlas.countries;
+    if (atlas.agencies) document.getElementById('atlas-agencies').value = atlas.agencies;
+    if (atlas.notes) document.getElementById('atlas-notes').value = atlas.notes;
+    // Don't auto-select region dropdown since it may not match custom entries
+  }
+
+  // Scroll listener for TOC highlighting
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(() => { updateActiveTOC(); ticking = false; });
+      ticking = true;
+    }
+  });
+
+  // Initialize visual systems
+  initParticles();
+  initConstellation();
+  initScrollAnimations();
+  updateReadiness();
+
+  // Open atlas section by default (it starts open)
+  // Already handled in HTML with .open classes
+}
+
+// Start
+init().catch(err => console.warn('Init error:', err));
+</script>
+</body>
+</html>
